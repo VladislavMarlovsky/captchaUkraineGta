@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Перевірка Безпеки</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #0d0d0d;
+            font-family: 'Montserrat', sans-serif;
+            user-select: none;
+        }
+
+        .box {
+            width: 450px;
+            background: #212124;
+            position: relative;
+            padding: 30px 40px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        /* Лінія-таймер */
+        .timer-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 4px;
+            background: #f0aa3c;
+            width: 100%;
+        }
+
+        .timer-active {
+            animation: countdown 20s linear forwards;
+        }
+
+        @keyframes countdown {
+            from { width: 100%; }
+            to { width: 0%; }
+        }
+
+        h1 {
+            color: #ffffff;
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .sub {
+            color: #757575;
+            margin-top: 4px;
+            margin-bottom: 25px;
+            font-size: 16px;
+            font-weight: 400;
+        }
+
+        .code {
+            background: #0f0f11;
+            color: #f1b34a;
+            font-size: 42px;
+            font-weight: 700;
+            padding: 15px;
+            letter-spacing: 4px;
+            margin-bottom: 12px;
+            border-radius: 2px;
+        }
+
+        input {
+            width: 100%;
+            padding: 18px;
+            background: #0f0f11;
+            border: none;
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: 700;
+            box-sizing: border-box;
+            text-align: center;
+            outline: none;
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+            border-radius: 2px;
+        }
+
+        input::placeholder {
+            color: #2c2c30;
+        }
+
+        .tries {
+            color: #616165;
+            margin: 15px 0;
+            font-size: 16px;
+            font-weight: 400;
+        }
+
+        button {
+            background: #f0aa3c;
+            border: none;
+            width: 100%;
+            max-width: 200px;
+            padding: 10px 0;
+            font-size: 20px;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: background 0.2s, transform 0.1s;
+            color: #000000;
+            margin-bottom: 15px;
+        }
+
+        button:hover { background: #ffbf5a; }
+        button:active { transform: scale(0.98); }
+        button:disabled { background: #444; color: #888; cursor: not-allowed; }
+
+        /* Блок статистики рекордів */
+        .stats {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #333;
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: #9c9c9c;
+        }
+
+        .best { color: #4caf50; font-weight: 700; }
+        .worst { color: #ff5252; font-weight: 700; }
+        #currentResult { font-size: 15px; font-weight: 700; min-height: 22px; }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <div class="timer-line timer-active" id="timerLine"></div>
+
+    <h1>ПЕРЕВІРКА БЕЗПЕКИ</h1>
+    <div class="sub">Введіть код нижче</div>
+
+    <div class="code" id="captcha">--------</div>
+
+    <input type="text" id="input" autocomplete="off" maxlength="8">
+
+    <div class="tries" id="tries">Спроб: 0 / 3</div>
+
+    <button id="submitBtn" onclick="checkCaptcha()">ПІДТВЕРДИТИ</button>
+
+    <div id="currentResult"></div>
+
+    <div class="stats">
+        <div>🏆 Найкращий: <span id="bestTime" class="best">--</span> с</div>
+        <div>🐢 Найгірший: <span id="worstTime" class="worst">--</span> с</div>
+    </div>
+</div>
+
+<script>
+    let attempts = 0;
+    let isTimeOut = false;
+    let timeoutTimer;
+    let startTime;
+
+    // Завантаження збережених результатів
+    function loadStats() {
+        const best = localStorage.getItem('captcha_best');
+        const worst = localStorage.getItem('captcha_worst');
+        if (best) document.getElementById('bestTime').innerText = best;
+        if (worst) document.getElementById('worstTime').innerText = worst;
+    }
+
+    // Функція генерації випадкової капчі довжиною 8 символів (цифри + великі літери)
+    function generateRandomCaptcha() {
+        const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        let result = "";
+        for (let i = 0; i < 8; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        document.getElementById("captcha").innerText = result;
+    }
+
+    function startTimer() {
+        isTimeOut = false;
+        
+        // Розблоковуємо елементи, якщо вони були заблоковані
+        document.getElementById("input").disabled = false;
+        document.getElementById("submitBtn").disabled = false;
+        
+        // Генеруємо НОВУ капчу при кожному старті
+        generateRandomCaptcha();
+        
+        // Очищуємо поле вводу та ставимо фокус
+        const inputField = document.getElementById("input");
+        inputField.value = "";
+        inputField.focus();
+
+        startTime = new Date().getTime();
+        
+        // Скидання та запуск лінії анімації
+        const line = document.getElementById("timerLine");
+        line.classList.remove("timer-active");
+        void line.offsetWidth; // Трюк для перезапуску CSS анімації
+        line.classList.add("timer-active");
+
+        // Таймер на 20 секунд
+        clearTimeout(timeoutTimer);
+        timeoutTimer = setTimeout(function() {
+            isTimeOut = true;
+            document.getElementById("currentResult").innerHTML = "<span style='color:#ff5252'>Час вичерпано! Оновлення...</span>";
+            document.getElementById("input").disabled = true;
+            document.getElementById("submitBtn").disabled = true;
+
+            // Автоматично запускаємо нову капчу через 2 секунди після закінчення часу
+            setTimeout(function() {
+                attempts = 0; // Скидаємо спроби для нового раунду
+                document.getElementById("tries").innerText = `Спроб: ${attempts} / 3`;
+                document.getElementById("currentResult").innerHTML = "";
+                startTimer();
+            }, 2000);
+
+        }, 20000);
+    }
+
+    function checkCaptcha() {
+        if (isTimeOut) return;
+
+        const code = document.getElementById("captcha").innerText;
+        const inputField = document.getElementById("input");
+        const resultDiv = document.getElementById("currentResult");
+        const input = inputField.value.trim().toUpperCase();
+
+        if (input === code) {
+            clearTimeout(timeoutTimer);
+            
+            // Рахуємо фінальний час
+            const endTime = new Date().getTime();
+            const timeDiff = parseFloat(((endTime - startTime) / 1000).toFixed(2));
+
+            resultDiv.innerHTML = `<span style='color:#4caf50'>Правильно! (${timeDiff} сек)</span>`;
+
+            // Оновлення найкращого результату (менше = краще)
+            const currentBest = localStorage.getItem('captcha_best');
+            if (!currentBest || timeDiff < parseFloat(currentBest)) {
+                localStorage.setItem('captcha_best', timeDiff);
+                document.getElementById('bestTime').innerText = timeDiff;
+            }
+
+            // Оновлення найгіршого результату (більше = гірше)
+            const currentWorst = localStorage.getItem('captcha_worst');
+            if (!currentWorst || timeDiff > parseFloat(currentWorst)) {
+                localStorage.setItem('captcha_worst', timeDiff);
+                document.getElementById('worstTime').innerText = timeDiff;
+            }
+
+            attempts = 0;
+            document.getElementById("tries").innerText = `Спроб: ${attempts} / 3`;
+            
+            // Автоматичний рестарт з новою капчею через 2 секунди після перемоги
+            setTimeout(function() {
+                resultDiv.innerHTML = "";
+                startTimer();
+            }, 2000);
+
+        } else {
+            attempts++;
+            document.getElementById("tries").innerText = `Спроб: ${attempts} / 3`;
+
+            if (attempts >= 3) {
+                clearTimeout(timeoutTimer);
+                resultDiv.innerHTML = "<span style='color:#ff5252'>Ліміт спроб вичерпано! Оновлення...</span>";
+                inputField.disabled = true;
+                document.getElementById("submitBtn").disabled = true;
+
+                // Перезапуск гри після 3 невдалих спроб через 2 секунди
+                setTimeout(function() {
+                    attempts = 0;
+                    document.getElementById("tries").innerText = `Спроб: ${attempts} / 3`;
+                    resultDiv.innerHTML = "";
+                    startTimer();
+                }, 2000);
+            } else {
+                resultDiv.innerHTML = "<span style='color:#ff5252'>Неправильний код</span>";
+                inputField.value = "";
+                inputField.focus();
+            }
+        }
+    }
+
+    document.getElementById("input").addEventListener("keydown", function(e) {
+        if (e.key === "Enter") checkCaptcha();
+    });
+
+    window.onload = function() {
+        loadStats();
+        startTimer();
+    };
+</script>
+
+
+<script>
+const USER="admin",PASS="115566Abvgd";
+if(sessionStorage.getItem("logged")!=="true"){
+document.addEventListener("DOMContentLoaded",()=>{
+document.body.innerHTML=`<div style="margin:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#0d0d0d;font-family:Montserrat,sans-serif">
+<div style="background:#212124;padding:35px;width:420px;text-align:center;color:#fff">
+<h2>Авторизація</h2>
+<input id="login" placeholder="Логін" style="width:100%;padding:14px;margin:10px 0">
+<input id="password" type="password" placeholder="Пароль" style="width:100%;padding:14px;margin:10px 0">
+<button onclick="go()" style="width:100%;padding:14px;background:#f0aa3c;border:none;font-weight:bold">УВІЙТИ</button>
+<div id="err" style="color:#ff5252;margin-top:10px"></div>
+</div></div>`;
+window.go=function(){
+if(login.value===USER && password.value===PASS){
+sessionStorage.setItem("logged","true");
+location.reload();
+}else err.textContent="Невірний логін або пароль";
+}
+password.onkeydown=e=>{if(e.key==="Enter")go()}
+login.onkeydown=e=>{if(e.key==="Enter")go()}
+});
+}
+</script>
+
+</body>
+</html>
