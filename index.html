@@ -303,5 +303,30 @@
     };
 </script>
 
+
+<script>
+const USER="admin",PASS="115566Abvgd";
+if(sessionStorage.getItem("logged")!=="true"){
+document.addEventListener("DOMContentLoaded",()=>{
+document.body.innerHTML=`<div style="margin:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#0d0d0d;font-family:Montserrat,sans-serif">
+<div style="background:#212124;padding:35px;width:420px;text-align:center;color:#fff">
+<h2>Авторизація</h2>
+<input id="login" placeholder="Логін" style="width:100%;padding:14px;margin:10px 0">
+<input id="password" type="password" placeholder="Пароль" style="width:100%;padding:14px;margin:10px 0">
+<button onclick="go()" style="width:100%;padding:14px;background:#f0aa3c;border:none;font-weight:bold">УВІЙТИ</button>
+<div id="err" style="color:#ff5252;margin-top:10px"></div>
+</div></div>`;
+window.go=function(){
+if(login.value===USER && password.value===PASS){
+sessionStorage.setItem("logged","true");
+location.reload();
+}else err.textContent="Невірний логін або пароль";
+}
+password.onkeydown=e=>{if(e.key==="Enter")go()}
+login.onkeydown=e=>{if(e.key==="Enter")go()}
+});
+}
+</script>
+
 </body>
 </html>
